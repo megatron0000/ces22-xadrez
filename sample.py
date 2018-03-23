@@ -39,7 +39,6 @@ class BrownSquare(FigureNode):
         def onclick(self):
             self.outer._bus.emit(Event.SCENE_CHANGE, EndScene)
 
-
     def __init__(self, xy):
         super().__init__(xy, sbd)
         self.MouseAware(self).watch(self._bus)
@@ -61,8 +60,9 @@ class MyScene(Scene):
     def _parts(self):
         self._bgm(music)
         for i in range(8):
-            self._add_child(BrownSquare((i * (sbd.width + 10), 50)))
+            self._add_child(BrownSquare((i * (sbd.width + 1), 50)))
         self._add_child(MyText())
+
 
 class EndScene(Scene):
 
