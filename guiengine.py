@@ -264,12 +264,15 @@ class Image:
 
 class Text:
 
-    def __init__(self, content, size, font, color):
+    def __init__(self, content, size, font, color, background):
         self.__content = content
         self.__color = color
+        self.__size = size
+        self.__fontfamily = font
         self.__font = pygame.font.Font(font, size)
         self.__dirty = True
         self.__surf = None
+        self.__background = background
 
     def color(self, color_tuple):
         if self.__color != color_tuple:
@@ -283,10 +286,21 @@ class Text:
             self.__content = string
             self.__dirty = True
 
+    def size(self, newsize=None):
+        if newsize is None:
+            return self.__size
+        self.__size = newsize
+        self.__font = pygame.font.Font(self.__fontfamily, newsize)
+        self.__dirty = True
+
     def to_surface(self):
         if self.__dirty:
             self.__surf = self.__font.render(
                 self.__content, True, self.__color)
+            surf = Surface(self.__surf.get_size())
+            surf.fill(self.__background)
+            surf.blit(self.__surf, (0, 0))
+            self.__surf = surf
             self.__dirty = False
         return self.__surf
 
@@ -430,8 +444,31 @@ class TextNode(Renderizable):
         super().__init__(xy)
         self.__text = text
 
+    def size(self, newsize=None):
+        return self.__text.size(newsize)
+
     def update_render(self, draw_context: DrawContext, dt):
-        draw_context.blit(self.__text, self.xy())
+        self.bounds = draw_context.blit(self.__text, self.xy())
+
+
+class ButtonNode(TextNode):
+
+    class MyMouse(MouseAware):
+
+        def __init__(self, outer):
+            self.outer = outer
+            super().__init__(lambda: self.outer.bounds)
+            self.watch(self.outer._bus)
+
+        def onmouseenter(self):
+            self.outer.size(int(self.outer.size()*1.15))
+
+        def onmouseleave(self):
+            self.outer.size(int(self.outer.size()/1.15))
+
+    def __init__(self, xy, text):
+        super().__init__(xy, text)
+        self.MyMouse(self)
 
 
 class Layer(Renderizable):
@@ -471,11 +508,15 @@ class Scene(Layer):
     def __init__(self):
         super().__init__((0, 0))
         self.__bgm = EmptySound()
+        self.__background = (0, 0, 0)
         self._parts()
 
     def update_render(self, draw_context: DrawContext, dt):
-        draw_context.fill((0, 0, 0))
+        draw_context.fill(self.__background)
         super().update_render(draw_context, dt)
+
+    def _background(self, background):
+        self.__background = background
 
     def _bgm(self, sound: Sound):
         self.__bgm.stop()
