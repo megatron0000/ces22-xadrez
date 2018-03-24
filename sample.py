@@ -39,7 +39,10 @@ class BrownSquare(FigureNode):
         def onclick(self):
             self.outer._bus.emit(Event.SCENE_CHANGE, EndScene)
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> implementando-chessengine
     def __init__(self, xy):
         super().__init__(xy, sbd)
         self.MouseAware(self).watch(self._bus)
@@ -61,9 +64,16 @@ class MyScene(Scene):
     def _parts(self):
         self._bgm(music)
         for i in range(8):
+<<<<<<< HEAD
             self._add_child(BrownSquare((i * (sbd.width + 10), 50)))
         self._add_child(MyText())
 
+=======
+            self._add_child(BrownSquare((i * (sbd.width + 1), 50)))
+        self._add_child(MyText())
+
+
+>>>>>>> implementando-chessengine
 class EndScene(Scene):
 
     def _parts(self):
