@@ -4,6 +4,11 @@ from enum import Enum
 import pygame
 
 
+def initialize():
+    pygame.init()
+    pygame.display.set_mode((800, 600))
+
+
 class EventBus:
     __active = None
 
@@ -128,8 +133,8 @@ class Event(Enum):
 
 class MouseAware:
 
-    def __init__(self, bounds_lambda):
-        self.bounds_lambda = bounds_lambda
+    def __init__(self):
+        self.__bounds_lambda = None
         self.__mousedown_at = None
         self.__mouseinside = False
         self.__isdragging = False
@@ -142,7 +147,7 @@ class MouseAware:
             return
         # click
         if abs(data[0] + data[1] - (self.__mousedown_at[0] + self.__mousedown_at[1])) < 10 \
-                and self.bounds_lambda().collidepoint(self.__mousedown_at):
+                and self.__bounds_lambda().collidepoint(self.__mousedown_at):
             self.onclick()
             self.__mousedown_at = None
         # dragend
@@ -153,7 +158,7 @@ class MouseAware:
     def __onmousemove(self, data):
         # mouseenter e mouseleave
         # (talvez tenha que restringir a somente enquanto não estiver acontecendo um drag)
-        mouseinside = bool(self.bounds_lambda().collidepoint(data))
+        mouseinside = bool(self.__bounds_lambda().collidepoint(data))
         if mouseinside is True and self.__mouseinside is False:
             self.onmouseenter()
         elif mouseinside is False and self.__mouseinside is True:
@@ -161,14 +166,15 @@ class MouseAware:
         self.__mouseinside = mouseinside
         # dragstart
         if self.__mousedown_at is not None and self.__isdragging is False:
-            was_inside = bool(self.bounds_lambda().collidepoint(self.__mousedown_at))
+            was_inside = bool(self.__bounds_lambda().collidepoint(self.__mousedown_at))
             if was_inside:
                 self.ondragstart(self.__mousedown_at)
                 self.__isdragging = True
         if self.__mousedown_at is not None and self.__isdragging is True:
             self.ondrag(data)
 
-    def watch(self, bus):
+    def watch(self, bus, bounds_lambda):
+        self.__bounds_lambda = bounds_lambda
         bus.on(Event.MOUSEDOWN, self.__onmousedown)
         bus.on(Event.MOUSEUP, self.__onmouseup)
         bus.on(Event.MOUSEMOVE, self.__onmousemove)
@@ -452,23 +458,21 @@ class TextNode(Renderizable):
 
 
 class ButtonNode(TextNode):
-
-    class MyMouse(MouseAware):
+    class MouseInButton(MouseAware):
 
         def __init__(self, outer):
             self.outer = outer
-            super().__init__(lambda: self.outer.bounds)
-            self.watch(self.outer._bus)
+            super().__init__()
 
         def onmouseenter(self):
-            self.outer.size(int(self.outer.size()*1.15))
+            self.outer.size(int(self.outer.size() * 1.15))
 
         def onmouseleave(self):
-            self.outer.size(int(self.outer.size()/1.15))
+            self.outer.size(int(self.outer.size() / 1.15))
 
     def __init__(self, xy, text):
         super().__init__(xy, text)
-        self.MyMouse(self)
+        self.MouseInButton(self).watch(self._bus, lambda: self.bounds)
 
 
 class Layer(Renderizable):

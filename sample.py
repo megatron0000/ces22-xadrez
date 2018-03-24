@@ -10,11 +10,13 @@ sgl = Image('resources/Cburnett V2 improved/PNGs/square gray light _png.png').sc
 #music = Sound('Music/Music.ogg')
 music = EmptySound()
 
+
 class BrownSquare(FigureNode):
+
     class MouseAware(MouseAware):
 
         def __init__(self, outer):
-            super().__init__(lambda: outer.bounds)
+            super().__init__()
             self.outer = outer
             self.mouse_pos_old = None
 
@@ -42,7 +44,7 @@ class BrownSquare(FigureNode):
 
     def __init__(self, xy):
         super().__init__(xy, sbd)
-        self.MouseAware(self).watch(self._bus)
+        self.MouseAware(self).watch(self._bus, lambda: self.bounds)
 
 
 class MyText(TextNode):
@@ -51,8 +53,7 @@ class MyText(TextNode):
 
         def __init__(self, outer):
             self.outer = outer
-            super().__init__(lambda: self.outer.bounds)
-            self.watch(self.outer._bus)
+            super().__init__()
 
         def onmouseenter(self):
             self.outer.text.size(32)
@@ -64,11 +65,10 @@ class MyText(TextNode):
         self.text = Text('Tente arrastar um quadrado !', 28, None, (255, 255, 0), (255, 255, 255))
         super().__init__((100, 400), self.text)
         self._bus.on('estou sendo arrastado', self.change)
-        self.MyMouse(self)
+        self.MyMouse(self).watch(self._bus, lambda: self.bounds)
 
     def change(self, data):
         self.text.content('Perfeito ! Arrastou, funcionou. Agora tente clicar num quadrado')
-
 
 
 class MyScene(Scene):
