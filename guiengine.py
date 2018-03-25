@@ -4,9 +4,9 @@ from enum import Enum
 import pygame
 
 
-def initialize():
+def initialize(width, height):
     pygame.init()
-    pygame.display.set_mode((800, 600))
+    pygame.display.set_mode((width, height))
 
 
 class EventBus:
@@ -470,9 +470,17 @@ class ButtonNode(TextNode):
         def onmouseleave(self):
             self.outer.size(int(self.outer.size() / 1.15))
 
+        def onclick(self):
+            for i in self.outer._callback:
+                i()
+
     def __init__(self, xy, text):
         super().__init__(xy, text)
         self.MouseInButton(self).watch(self._bus, lambda: self.bounds)
+        self._callback = []
+
+    def onclick(self,callback):
+        self._callback.append(callback)
 
 
 class Layer(Renderizable):

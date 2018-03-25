@@ -418,9 +418,10 @@ class SlidingPiece(Piece):
                     break
                 elif board[currindex].kind is NoPiece:
                     moves.append(Move(fromsq, currindex, MoveKind.QUIET, None))
+                    continue
                 elif board[currindex].side is not self.side:
                     moves.append(Move(fromsq, currindex, MoveKind.CAPTURE, None))
-                    break
+                break
         return moves
 
 
@@ -551,7 +552,8 @@ class Pawn(Piece):
         # Capture and maybe promotion
         for attackoffset in self.attackoffsets[self.side]:
             if board[fromsq + attackoffset].kind is not NoPiece \
-                    and board[fromsq + attackoffset].kind is not OutOfBoundsPiece:
+                    and board[fromsq + attackoffset].kind is not OutOfBoundsPiece \
+                    and board[fromsq + attackoffset].side is not self.side:
                 if Square(fromsq).rank == self.initialrank[self.side.opponent()]:
                     for promotion in (Queen(self.side),
                                       Rook(self.side), Bishop(self.side), Knight(self.side)):
