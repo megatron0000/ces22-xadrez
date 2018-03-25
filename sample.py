@@ -7,7 +7,7 @@ sbd = Image('resources/Cburnett V2 improved/PNGs/square brown dark_png.png').sca
 sbl = Image('resources/Cburnett V2 improved/PNGs/square brown light_png.png').scale(1 / 10)
 sgd = Image('resources/Cburnett V2 improved/PNGs/square gray dark _png.png').scale(1 / 10)
 sgl = Image('resources/Cburnett V2 improved/PNGs/square gray light _png.png').scale(1 / 10)
-#music = Sound('Music/Music.ogg')
+# music = Sound('Music/Music.ogg')
 music = EmptySound()
 
 
@@ -40,7 +40,6 @@ class BrownSquare(FigureNode):
 
         def onclick(self):
             self.outer._bus.emit(Event.SCENE_CHANGE, EndScene)
-
 
     def __init__(self, xy):
         super().__init__(xy, sbd)

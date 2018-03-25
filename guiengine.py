@@ -5,7 +5,9 @@ import pygame
 
 
 def initialize(width, height):
-    pygame.init()
+    pygame.display.init()
+    pygame.font.init()
+    # pygame.mixer.init()
     pygame.display.set_mode((width, height))
 
 
@@ -99,6 +101,7 @@ class OuterBus(EventBus):
     def __init__(self):
         super().__init__()
         self.__redirection_target = None
+        self.__emptyframes = 0
 
     def redirect(self, target_bus):
         self.__redirection_target = target_bus
@@ -110,17 +113,21 @@ class OuterBus(EventBus):
             super().emit(event_name, event_data)
 
     def refresh(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.emit(Event.QUIT, None)
-            elif event.type == pygame.MOUSEMOTION:
-                self.emit(Event.MOUSEMOVE, event.pos)
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                self.emit(Event.MOUSEDOWN, event.pos)
-            # elif second button or middle button, emit other events
-            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                self.emit(Event.MOUSEUP, event.pos)
-            # Teclas, por enquanto, não são necessárias
+        for event in [pygame.event.wait()] + pygame.event.get():
+            self.__process_event(event)
+        pygame.time.wait(0)
+
+    def __process_event(self, event):
+        if event.type == pygame.QUIT:
+            self.emit(Event.QUIT, None)
+        elif event.type == pygame.MOUSEMOTION:
+            self.emit(Event.MOUSEMOVE, event.pos)
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self.emit(Event.MOUSEDOWN, event.pos)
+        # elif second button or middle button, emit other events
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            self.emit(Event.MOUSEUP, event.pos)
+        # Teclas, por enquanto, não são necessárias
 
 
 class Event(Enum):
@@ -149,11 +156,12 @@ class MouseAware:
         if abs(data[0] + data[1] - (self.__mousedown_at[0] + self.__mousedown_at[1])) < 10 \
                 and self.__bounds_lambda().collidepoint(self.__mousedown_at):
             self.onclick()
-            self.__mousedown_at = None
         # dragend
         if self.__isdragging is True:
             self.ondragend(data)
             self.__isdragging = False
+        # Incondicionalmente deletar mousedown_at
+        self.__mousedown_at = None
 
     def __onmousemove(self, data):
         # mouseenter e mouseleave
@@ -393,7 +401,7 @@ class Display:
 
     def __init__(self, width, height):
         self.__ctx = None
-        pygame.init()
+        pygame.display.init()
         self.resolution(width, height)
 
     def resolution(self, width, height):
@@ -493,6 +501,7 @@ class Layer(Renderizable):
         self.__children.append(renderizable)
 
     def _remove_child(self, renderizable):
+        renderizable.destroy()
         self.__children.remove(renderizable)
 
     def update_render(self, draw_context: DrawContext, dt):
@@ -510,6 +519,7 @@ class Layer(Renderizable):
             child.update_logic(dt)
 
     def destroy(self):
+        super().destroy()
         for child in self.__children:
             child.destroy()
         self.__children.clear()
