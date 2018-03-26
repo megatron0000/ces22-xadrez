@@ -454,13 +454,18 @@ class GameTest(unittest.TestCase):
                       [NoPiece()] * 7 + [King(Side.WHITE)]
         self.board3 = [Bishop(Side.BLACK)] + self.board2[1:]
         self.board4 = [NoPiece()] * 8 + [Pawn(Side.WHITE)] + [NoPiece()] * 7 + [NoPiece()] * 8 * 6
+        self.board5 = [NoPiece()] * 8 * 6 + [King(Side.BLACK), NoPiece(), King(Side.WHITE)] + [NoPiece()] * 5 + \
+                      [NoPiece()] * 6 + [Rook(Side.BLACK), Bishop(Side.WHITE)]
+
         self.default_castle = {
             Side.WHITE: (False, False),
             Side.BLACK: (False, False)
         }
 
+
     def test_init(self):
         game = Game(self.board1, self.default_castle, None, Side.BLACK)
+
 
     def test_check(self):
         game1 = Game(self.board1, self.default_castle, None, Side.BLACK)
@@ -470,6 +475,7 @@ class GameTest(unittest.TestCase):
         game3 = Game(self.board3, self.default_castle, None, Side.WHITE)
         self.assertTrue(game3.check())
 
+
     def test_stalemate(self):
         game1 = Game(self.board1, self.default_castle, None, Side.BLACK)
         self.assertFalse(game1.stalemate())
@@ -477,6 +483,7 @@ class GameTest(unittest.TestCase):
         self.assertTrue(game2.stalemate())
         game3 = Game(self.board3, self.default_castle, None, Side.WHITE)
         self.assertFalse(game3.stalemate())
+
 
     def test_checkmate(self):
         game1 = Game(self.board1, self.default_castle, None, Side.BLACK)
@@ -486,6 +493,7 @@ class GameTest(unittest.TestCase):
         game3 = Game(self.board3, self.default_castle, None, Side.WHITE)
         self.assertTrue(game3.checkmate())
 
+
     def test_make(self):
         game1 = Game(self.board1, self.default_castle, None, Side.BLACK)
         game1.make("h1h2")
@@ -493,6 +501,13 @@ class GameTest(unittest.TestCase):
         game4 = Game(self.board4, self.default_castle, None, Side.WHITE)
         game4.make("a7a8Q")
         self.assertEqual(game4.get("a8"), Queen(Side.WHITE))
+        game5 = Game(self.board5, self.default_castle, None, Side.BLACK)
+        self.assertEqual(game5.get("g1"), Rook(Side.BLACK))
+        self.assertEqual(game5.get("h1"), Bishop(Side.WHITE))
+        game5.make("g1h1")
+        self.assertEqual(game5.get("g1"), NoPiece())
+        self.assertEqual(game5.get("h1"), Rook(Side.BLACK))
+
 
     def test_unmake(self):
         game1 = Game(self.board1, self.default_castle, None, Side.BLACK)
@@ -505,5 +520,3 @@ class GameTest(unittest.TestCase):
         game4.unmake()
         self.assertEqual(game4.get("a8"), NoPiece())
         self.assertEqual(game4.get("a7"), Pawn(Side.WHITE))
-
-

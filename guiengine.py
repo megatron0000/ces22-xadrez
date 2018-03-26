@@ -4,6 +4,13 @@ from enum import Enum
 import pygame
 
 
+def initialize(width, height):
+    pygame.display.init()
+    pygame.font.init()
+    # pygame.mixer.init()
+    pygame.display.set_mode((width, height))
+
+
 class EventBus:
     __active = None
 
@@ -94,6 +101,7 @@ class OuterBus(EventBus):
     def __init__(self):
         super().__init__()
         self.__redirection_target = None
+        self.__emptyframes = 0
 
     def redirect(self, target_bus):
         self.__redirection_target = target_bus
@@ -105,17 +113,21 @@ class OuterBus(EventBus):
             super().emit(event_name, event_data)
 
     def refresh(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.emit(Event.QUIT, None)
-            elif event.type == pygame.MOUSEMOTION:
-                self.emit(Event.MOUSEMOVE, event.pos)
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                self.emit(Event.MOUSEDOWN, event.pos)
-            # elif second button or middle button, emit other events
-            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                self.emit(Event.MOUSEUP, event.pos)
-            # Teclas, por enquanto, não são necessárias
+        for event in [pygame.event.wait()] + pygame.event.get():
+            self.__process_event(event)
+        pygame.time.wait(0)
+
+    def __process_event(self, event):
+        if event.type == pygame.QUIT:
+            self.emit(Event.QUIT, None)
+        elif event.type == pygame.MOUSEMOTION:
+            self.emit(Event.MOUSEMOVE, event.pos)
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self.emit(Event.MOUSEDOWN, event.pos)
+        # elif second button or middle button, emit other events
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            self.emit(Event.MOUSEUP, event.pos)
+        # Teclas, por enquanto, não são necessárias
 
 
 class Event(Enum):
@@ -128,8 +140,8 @@ class Event(Enum):
 
 class MouseAware:
 
-    def __init__(self, bounds_lambda):
-        self.bounds_lambda = bounds_lambda
+    def __init__(self):
+        self.__bounds_lambda = None
         self.__mousedown_at = None
         self.__mouseinside = False
         self.__isdragging = False
@@ -142,18 +154,19 @@ class MouseAware:
             return
         # click
         if abs(data[0] + data[1] - (self.__mousedown_at[0] + self.__mousedown_at[1])) < 10 \
-                and self.bounds_lambda().collidepoint(self.__mousedown_at):
+                and self.__bounds_lambda().collidepoint(self.__mousedown_at):
             self.onclick()
-            self.__mousedown_at = None
         # dragend
         if self.__isdragging is True:
             self.ondragend(data)
             self.__isdragging = False
+        # Incondicionalmente deletar mousedown_at
+        self.__mousedown_at = None
 
     def __onmousemove(self, data):
         # mouseenter e mouseleave
         # (talvez tenha que restringir a somente enquanto não estiver acontecendo um drag)
-        mouseinside = bool(self.bounds_lambda().collidepoint(data))
+        mouseinside = bool(self.__bounds_lambda().collidepoint(data))
         if mouseinside is True and self.__mouseinside is False:
             self.onmouseenter()
         elif mouseinside is False and self.__mouseinside is True:
@@ -161,14 +174,15 @@ class MouseAware:
         self.__mouseinside = mouseinside
         # dragstart
         if self.__mousedown_at is not None and self.__isdragging is False:
-            was_inside = bool(self.bounds_lambda().collidepoint(self.__mousedown_at))
+            was_inside = bool(self.__bounds_lambda().collidepoint(self.__mousedown_at))
             if was_inside:
                 self.ondragstart(self.__mousedown_at)
                 self.__isdragging = True
         if self.__mousedown_at is not None and self.__isdragging is True:
             self.ondrag(data)
 
-    def watch(self, bus):
+    def watch(self, bus, bounds_lambda):
+        self.__bounds_lambda = bounds_lambda
         bus.on(Event.MOUSEDOWN, self.__onmousedown)
         bus.on(Event.MOUSEUP, self.__onmouseup)
         bus.on(Event.MOUSEMOVE, self.__onmousemove)
@@ -387,7 +401,7 @@ class Display:
 
     def __init__(self, width, height):
         self.__ctx = None
-        pygame.init()
+        pygame.display.init()
         self.resolution(width, height)
 
     def resolution(self, width, height):
@@ -452,23 +466,29 @@ class TextNode(Renderizable):
 
 
 class ButtonNode(TextNode):
-
-    class MyMouse(MouseAware):
+    class MouseInButton(MouseAware):
 
         def __init__(self, outer):
             self.outer = outer
-            super().__init__(lambda: self.outer.bounds)
-            self.watch(self.outer._bus)
+            super().__init__()
 
         def onmouseenter(self):
-            self.outer.size(int(self.outer.size()*1.15))
+            self.outer.size(int(self.outer.size() * 1.15))
 
         def onmouseleave(self):
-            self.outer.size(int(self.outer.size()/1.15))
+            self.outer.size(int(self.outer.size() / 1.15))
+
+        def onclick(self):
+            for i in self.outer._callback:
+                i()
 
     def __init__(self, xy, text):
         super().__init__(xy, text)
-        self.MyMouse(self)
+        self.MouseInButton(self).watch(self._bus, lambda: self.bounds)
+        self._callback = []
+
+    def onclick(self,callback):
+        self._callback.append(callback)
 
 
 class Layer(Renderizable):
@@ -481,6 +501,7 @@ class Layer(Renderizable):
         self.__children.append(renderizable)
 
     def _remove_child(self, renderizable):
+        renderizable.destroy()
         self.__children.remove(renderizable)
 
     def update_render(self, draw_context: DrawContext, dt):
@@ -498,6 +519,7 @@ class Layer(Renderizable):
             child.update_logic(dt)
 
     def destroy(self):
+        super().destroy()
         for child in self.__children:
             child.destroy()
         self.__children.clear()

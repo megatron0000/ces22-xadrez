@@ -145,6 +145,8 @@ class Board(BoardLike):
         tosq = Square(tosq)
         piece = self._board[fromsq.index]
         oldpiece = self._board[tosq.index]
+        if oldpiece.kind is not NoPiece:
+            self._removepiece(tosq)
         # tabuleiro
         self._board[fromsq.index] = NoPiece()
         self._board[tosq.index] = piece
@@ -161,6 +163,7 @@ class Board(BoardLike):
         # tabuleiro
         self._board[square.index] = piece
         # lista de quadrados do jogador
+        # print(piece, piece.side, square)
         self.__playersquares[piece.side][square] = True
         # lista de reis
         if piece.kind is King:
@@ -418,9 +421,10 @@ class SlidingPiece(Piece):
                     break
                 elif board[currindex].kind is NoPiece:
                     moves.append(Move(fromsq, currindex, MoveKind.QUIET, None))
+                    continue
                 elif board[currindex].side is not self.side:
                     moves.append(Move(fromsq, currindex, MoveKind.CAPTURE, None))
-                    break
+                break
         return moves
 
 
@@ -551,7 +555,8 @@ class Pawn(Piece):
         # Capture and maybe promotion
         for attackoffset in self.attackoffsets[self.side]:
             if board[fromsq + attackoffset].kind is not NoPiece \
-                    and board[fromsq + attackoffset].kind is not OutOfBoundsPiece:
+                    and board[fromsq + attackoffset].kind is not OutOfBoundsPiece \
+                    and board[fromsq + attackoffset].side is not self.side:
                 if Square(fromsq).rank == self.initialrank[self.side.opponent()]:
                     for promotion in (Queen(self.side),
                                       Rook(self.side), Bishop(self.side), Knight(self.side)):
@@ -579,7 +584,8 @@ class King(Piece):
         for offset in self.offsets:
             if board[fromsq + offset].kind is NoPiece:
                 moves.append(Move(fromsq, fromsq + offset, MoveKind.QUIET, None))
-            elif board[fromsq + offset].kind is not OutOfBoundsPiece:
+            elif board[fromsq + offset].kind is not OutOfBoundsPiece \
+                    and board[fromsq + offset].side is not self.side:
                 moves.append(Move(fromsq, fromsq + offset, MoveKind.CAPTURE, None))
         # Castling queen
         if context.can_castle[self.side][0] \
@@ -627,7 +633,8 @@ class Game:
             raise ValueError('Cannot construct a game board with OutOfBoundsPiece in the middle')
         board = ([OutOfBoundsPiece()] * 15) * 3
         for row in range(8):
-            board += [OutOfBoundsPiece()] * 3 + board_array[8 * row:8 * row + 8] + [OutOfBoundsPiece()] * 4
+            board += [OutOfBoundsPiece()] * 3 + board_array[8 * row:8 * row + 8] + \
+                     [OutOfBoundsPiece()] * 4
         board += ([OutOfBoundsPiece()] * 15) * 4
         self.__board = self.GameBoard(board)
         self.__context = Context({
@@ -642,16 +649,20 @@ class Game:
 
     def get(self, square):
         if Square(square).valid is False:
-            raise ValueError('Square named ' + Square(square).name + 'is not a valid chessboard position')
+            raise ValueError('Square named ' + Square(square).name +
+                             'is not a valid chessboard position')
         return self.__board[square]
 
     def check(self):
         return self.__board.attacked(self.__board.king(self.__turn), self.__turn.opponent())
 
     def moves(self, square):
+        if self.__board[square].side is not self.__turn:
+            return []
         legalmoves = []
         piece = self.__board[square]
         moves = piece.plmoves(square, self.__board, self.__context)
+        # print(moves)
         for move in moves:
             antimove = move.kind.exec(
                 move, self.__board.movepiece, self.__board.addpiece, self.__board.removepiece)
@@ -676,16 +687,20 @@ class Game:
             fromsq = Square(move[0:2])
             tosq = Square(move[2:4])
             side = self.__board[fromsq].side
-            promotion = {'N': Knight(side), 'R': Rook(side), 'Q': Queen(side), 'B': Bishop(side)}[move[4]] if \
+            promotion = {
+                'N': Knight(side), 'R': Rook(side), 'Q': Queen(side), 'B': Bishop(side)
+            }[move[4]] if \
                 len(move) == 5 else None
             existent = [x for x in self.__board[fromsq].plmoves(fromsq, self.__board, self.__context)
                         if x.tosq == tosq and x.promotion == promotion]
             move = existent[0]
         capturedpiece = self.__board[move.tosq]
-        antimove = move.kind.exec(move, self.__board.movepiece, self.__board.addpiece, self.__board.removepiece)
+        antimove = move.kind.exec(
+            move, self.__board.movepiece, self.__board.addpiece, self.__board.removepiece)
         if self.check() or self.__board[move.tosq].side is not self.__turn:
-            antimove.exec(antimove, self.__board.movepiece, self.__board.addpiece, self.__board.removepiece)
-            raise RuntimeError('Tried to execute illegal move: ' + move)
+            antimove.kind.exec(
+                antimove, self.__board.movepiece, self.__board.addpiece, self.__board.removepiece)
+            raise RuntimeError('Tried to execute illegal move: ' + str(move))
         self.__history.append(self.Snapshot(self.__turn, {
             Side.WHITE: self.__context.can_castle[Side.WHITE],
             Side.BLACK: self.__context.can_castle[Side.BLACK]
@@ -703,8 +718,8 @@ class Game:
                 'h' + self.initialrank[self.__turn]):
             self.__context.can_castle[self.__turn] = (self.__context.can_castle[self.__turn][0], False)
         # en passant
-        if move.kind is MoveKind.PAWN2:
-            self.__context = self.__context.replace(ep=(move.fromsq + move.tosq) / 2)
+        ep = (move.fromsq + move.tosq) / 2 if move.kind is MoveKind.PAWN2 else None
+        self.__context = self.__context._replace(ep=ep)
         self.__turn = self.__turn.opponent()
         return capturedpiece
 
@@ -712,6 +727,7 @@ class Game:
         if len(self.__history) == 0:
             raise RuntimeError('Tried to unmake a move, but no moves had been made previously')
         last = self.__history.pop()
-        last.antimove.kind.exec(last.antimove, self.__board.movepiece, self.__board.addpiece, self.__board.removepiece)
+        last.antimove.kind.exec(
+            last.antimove, self.__board.movepiece, self.__board.addpiece, self.__board.removepiece)
         self.__context = self.__context._replace(ep=last.ep, can_castle=last.can_castle)
         self.__turn = last.turn
