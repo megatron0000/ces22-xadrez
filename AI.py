@@ -1,60 +1,88 @@
 from chessengine import*
 from guiengine import*
 from Interfaces import*
+import math
 
 
 class minimaxRoot:
 
     def __init__(self,game,isMaximisingPlayer):
 
-        self.newGameMoves = game.get_moves()
+        self.newGameMoves = game.moves()
         self.bestMove = -9999
         self.bestMoveFound = None
+        self.game = game
+        self.isMaximisingPlayer = isMaximisingPlayer
 
-        #for(var i = 0; i < newGameMoves.length; i++) {
-        for move in self.newGameMoves:
-            #var newGameMove = newGameMoves[i]
-            game.make()
-            game.ugly_move(newGameMove);
-            var value = minimax(depth - 1, game, -10000, 10000, !isMaximisingPlayer);
-            game.undo();
-            if(value >= bestMove) {
-                bestMove = value;
-                bestMoveFound = newGameMove;
-        return bestMoveFound
+    #for(var i = 0; i < newGameMoves.length; i++) {
+    # var newGameMove = newGameMoves[i]
+    def makeBestMove (self):
+        for (move) in self.newGameMoves:
+            # game.ugly_move(newGameMove);
+            self.game.make(move)
+            #var value = minimax(depth - 1, game, -10000, 10000, !isMaximisingPlayer);
+            value = self.minimax(depth - 1, self.game, -10000, 10000,not self.isMaximisingPlayer)
+            #game.undo();
+            self.game.unmake()
+            #if(value >= bestMove):
+            if value >= self.bestMove:
+                #bestMove = value;
+                self.bestMove = value
+                #bestMoveFound = newGameMove;
+                self.bestMoveFound = move
+        #return bestMoveFound
+        return self.bestMoveFound
 
-var minimax = function (depth, game, alpha, beta, isMaximisingPlayer) {
-    positionCount++;
-    if (depth === 0) {
-        return -evaluateBoard(game.board());
-    }
+#var minimax = function (depth, game, alpha, beta, isMaximisingPlayer) {
+class minimax:
 
-    var newGameMoves = game.ugly_moves();
+    positionCount = 0
 
-    if (isMaximisingPlayer) {
-        var bestMove = -9999;
-        for (var i = 0; i < newGameMoves.length; i++) {
-            game.ugly_move(newGameMoves[i]);
-            bestMove = Math.max(bestMove, minimax(depth - 1, game, alpha, beta, !isMaximisingPlayer));
-            game.undo();
-            alpha = Math.max(alpha, bestMove);
-            if (beta <= alpha) {
-                return bestMove;
+    # var newGameMoves = game.ugly_moves();
+
+    def __init__(self,depth, game, alpha, beta, isMaximisingPlayer):
+        self.newGameMoves = game.moves()
+        self.depth = depth
+        self.game = game
+        self.alpha = alpha
+        self.beta = beta
+        self.isMaximisingPlayer = isMaximisingPlayer
+        self.
+
+    #if (depth === 0) {
+    #    return -evaluateBoard(game.board());
+    #}
+
+    def makeBestMove(self):
+
+        #if (isMaximisingPlayer) {
+        if self.isMaximisingPlayer:
+            #var bestMove = -9999;
+            bestMove = -9999
+            #for (var i = 0; i < newGameMoves.length; i++) {
+            for move in self.newGameMoves:
+                #game.ugly_move(newGameMoves[i]);
+                self.game.make(move)
+                bestMove = math.(bestMove, minimax(depth - 1, game, alpha, beta, !isMaximisingPlayer));
+                game.undo();
+                alpha = Math.max(alpha, bestMove);
+                if (beta <= alpha) {
+                    return bestMove;
+                }
             }
-        }
-        return bestMove;
-    } else {
-        var bestMove = 9999;
-        for (var i = 0; i < newGameMoves.length; i++) {
-            game.ugly_move(newGameMoves[i]);
-            bestMove = Math.min(bestMove, minimax(depth - 1, game, alpha, beta, !isMaximisingPlayer));
-            game.undo();
-            beta = Math.min(beta, bestMove);
-            if (beta <= alpha) {
-                return bestMove;
+            return bestMove;
+        } else {
+            var bestMove = 9999;
+            for (var i = 0; i < newGameMoves.length; i++) {
+                game.ugly_move(newGameMoves[i]);
+                bestMove = Math.min(bestMove, minimax(depth - 1, game, alpha, beta, !isMaximisingPlayer));
+                game.undo();
+                beta = Math.min(beta, bestMove);
+                if (beta <= alpha) {
+                    return bestMove;
+                }
             }
-        }
-        return bestMove;
+            return bestMove;
     }
 };
 
