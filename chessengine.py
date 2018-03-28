@@ -134,6 +134,9 @@ class Board(BoardLike):
                 if piece.kind is King:
                     self.__kings[piece.side] = Square(sq)
 
+    def occuppied(self, side):
+        return self.__playersquares[side].keys()
+
     def attacked(self, square, side):
         for fromsq in self.__playersquares[side]:
             if self[fromsq].attacks(fromsq, square, self):
@@ -656,7 +659,12 @@ class Game:
     def check(self):
         return self.__board.attacked(self.__board.king(self.__turn), self.__turn.opponent())
 
-    def moves(self, square):
+    def moves(self, square=None):
+        if square is None:
+            moves = []
+            for square in self.__board.occuppied(self.__turn):
+                moves += self.moves(square)
+            return moves
         if self.__board[square].side is not self.__turn:
             return []
         legalmoves = []
@@ -675,12 +683,12 @@ class Game:
     def checkmate(self):
         if not self.check():
             return False
-        return self.moves(self.__board.king(self.__turn)) == []
+        return self.moves() == []
 
     def stalemate(self):
         if self.check():
             return False
-        return self.moves(self.__board.king(self.__turn)) == []
+        return self.moves() == []
 
     def make(self, move):
         if isinstance(move, str):
@@ -694,7 +702,6 @@ class Game:
             existent = [x for x in self.__board[fromsq].plmoves(fromsq, self.__board, self.__context)
                         if x.tosq == tosq and x.promotion == promotion]
             move = existent[0]
-        capturedpiece = self.__board[move.tosq]
         antimove = move.kind.exec(
             move, self.__board.movepiece, self.__board.addpiece, self.__board.removepiece)
         if self.check() or self.__board[move.tosq].side is not self.__turn:
@@ -721,7 +728,10 @@ class Game:
         ep = (move.fromsq + move.tosq) / 2 if move.kind is MoveKind.PAWN2 else None
         self.__context = self.__context._replace(ep=ep)
         self.__turn = self.__turn.opponent()
-        return capturedpiece
+        if move.kind in (MoveKind.CAPTURE, MoveKind.EP_CAPTURE, MoveKind.PROMOTION_CAPTURE):
+            return antimove.addpiece, antimove.addpos
+        else:
+            return NoPiece(), None
 
     def unmake(self):
         if len(self.__history) == 0:
