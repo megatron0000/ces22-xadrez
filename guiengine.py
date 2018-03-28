@@ -50,7 +50,8 @@ class EventBus:
     def emit(self, event_name, event_data):
         self.__ensure_exists(event_name)
         for callback in self._listeners[event_name]:
-            callback(event_data)
+            if callback(event_data) is True:
+                break
 
 
 class BusProxy:
@@ -113,9 +114,11 @@ class OuterBus(EventBus):
             super().emit(event_name, event_data)
 
     def refresh(self):
-        for event in [pygame.event.wait()] + pygame.event.get():
+        for event in pygame.event.get():
             self.__process_event(event)
-        pygame.time.wait(0)
+        # for event in [pygame.event.wait()] + pygame.event.get():
+        #     self.__process_event(event)
+        # pygame.time.wait(0)
 
     def __process_event(self, event):
         if event.type == pygame.QUIT:
@@ -249,20 +252,29 @@ class ResourceBank:
 class Image:
 
     def __init__(self, path):
+        self.__path = path
         self.__surf = ResourceBank.instance().image(path)
         self.__update_virtuals()
+        self.__factor = 1
 
     def __update_virtuals(self):
         self.width = self.__surf.get_width()
         self.height = self.__surf.get_height()
 
     def scale(self, factor):
+        self.__factor *= factor
         self.__surf = pygame.transform.smoothscale(
             self.__surf,
             (int(self.__surf.get_width() * factor), int(self.__surf.get_height() * factor))
         )
         self.__update_virtuals()
         return self
+
+    def clone(self, apply_changes=True):
+        out = Image(self.__path)
+        if apply_changes:
+            out.scale(self.__factor)
+        return out
 
     def rotate(self, degrees):
         """
@@ -307,13 +319,19 @@ class Text:
         self.__font = pygame.font.Font(self.__fontfamily, newsize)
         self.__dirty = True
 
+    def width(self):
+        return self.__font.size(self.__content)[0]
+
+    def height(self):
+        return self.__font.size(self.__content)[1]
+
     def to_surface(self):
         if self.__dirty:
             self.__surf = self.__font.render(
-                self.__content, True, self.__color)
-            surf = Surface(self.__surf.get_size())
+                self.__content, True, self.__color + (0,))
+            surf = pygame.Surface(tuple(l * 1.2 for l in self.__surf.get_size()))
             surf.fill(self.__background)
-            surf.blit(self.__surf, (0, 0))
+            surf.blit(self.__surf, tuple(l * 0.1 for l in self.__surf.get_size()))
             self.__surf = surf
             self.__dirty = False
         return self.__surf
@@ -487,7 +505,7 @@ class ButtonNode(TextNode):
         self.MouseInButton(self).watch(self._bus, lambda: self.bounds)
         self._callback = []
 
-    def onclick(self,callback):
+    def onclick(self, callback):
         self._callback.append(callback)
 
 
