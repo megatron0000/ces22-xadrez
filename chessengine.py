@@ -185,9 +185,6 @@ class Board(BoardLike):
             self.__kings[piece.side] = None
         return piece
 
-    def get_playersquares(self, side):
-        return self.__playersquares[side]
-
     def king(self, side):
         return self.__kings[side]
 
@@ -745,7 +742,5 @@ class Game:
         self.__context = self.__context._replace(ep=last.ep, can_castle=last.can_castle)
         self.__turn = last.turn
 
-    def get_moves(self):
-        legalmoves = []
-        for square in self.__board.get_playersquares(self.turn()):
-            legalmoves.append((square,self.moves(square)))
+    def getboard (self):
+        return self.__board
