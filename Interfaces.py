@@ -376,4 +376,5 @@ class PlayScreen(Scene):
         self._bus.on('move made', self.on_move_made)
 
 
-GameObject(Display(WIDTH, HEIGHT), MainMenuScreen).gameloop()
+if __name__ == '__main__':
+    GameObject(Display(WIDTH, HEIGHT), MainMenuScreen).gameloop()

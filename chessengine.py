@@ -742,5 +742,10 @@ class Game:
         self.__context = self.__context._replace(ep=last.ep, can_castle=last.can_castle)
         self.__turn = last.turn
 
-    def getboard (self):
+    def getboard(self):
         return self.__board
+
+    def get_moves(self):
+        legalmoves = []
+        for square in self.__board.get_playersquares(self.turn()):
+            legalmoves.append((square, self.moves(square)))
