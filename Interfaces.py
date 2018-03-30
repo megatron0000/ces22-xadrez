@@ -2,12 +2,16 @@ from math import sqrt
 
 from chessengine import *
 from guiengine import *
+from minimax.AI import Minimax
+from multiprocessing import Pool
+
 
 WIDTH = 800
 HEIGHT = 600
 SCALE = 1 / 15
 GAME = None
 CHOOSINGPROMOTION = False
+AI = None
 
 initialize(WIDTH, HEIGHT)
 
@@ -118,10 +122,11 @@ class ChessPiece(FigureNode):
     def update_logic(self, dt):
         super().update_logic(dt)
         if self.timetaken > 0:
-            self.xy(tuple(l1 + 1000 * dt * l2 for l1, l2 in zip(self.xy(), self.movedirection)))
+            self.xy(tuple(l1 + 400 * dt * l2 for l1, l2 in zip(self.xy(), self.movedirection)))
             self.timetaken -= dt
             if self.timetaken <= 0:
                 self.calcpos(self.movetarget)
+                self.ismoving = False
 
     class PieceAware(MouseAware):
         def __init__(self, outer):
@@ -150,13 +155,13 @@ class ChessPiece(FigureNode):
                 CHOOSINGPROMOTION = True
                 return
             captured = GAME.make(pos_self_move[2])
-            self.outer._bus.emit('move made', None)
             if captured[0].kind is not NoPiece:
                 self.outer._bus.emit('piece captured', captured)
             if pos_self_move[2].kind is MoveKind.CASTLE_QUEEN:
                 self.outer._bus.emit('request piece move', (self.outer.square - 2, self.outer.square + 1))
             elif pos_self_move[2].kind is MoveKind.CASTLE_KING:
                 self.outer._bus.emit('request piece move', (self.outer.square + 1, self.outer.square - 1))
+            self.outer._bus.emit('move made', None)
 
         def on_order_piece_move(self, self_tosq_coord):
             if self.outer is not self_tosq_coord[0]:
@@ -169,7 +174,7 @@ class ChessPiece(FigureNode):
                           + self.outer.movedirection[1] * self.outer.movedirection[1])
             self.outer.movedirection = tuple(l / length for l in self.outer.movedirection)
             self.outer.movetarget = self_tosq_coord[2]
-            self.outer.timetaken = length / 1000
+            self.outer.timetaken = length / 400
 
         def ondragstart(self, pos):
             if self.outer.ismoving:
@@ -300,8 +305,10 @@ class PlayScreen(Scene):
         self.children.append(promotedpiece)
         global CHOOSINGPROMOTION
         CHOOSINGPROMOTION = False
-        GAME.make(self.promoting_move._replace(promotion=chesspiece))
-        self._bus.emit('move made', None)
+        promotionmove = self.promoting_move._replace(promotion=chesspiece)
+        if promotionmove in GAME.moves():
+            GAME.make(promotionmove)
+            self._bus.emit('move made', None)
 
     def on_move_made(self, data):
 
@@ -323,6 +330,28 @@ class PlayScreen(Scene):
             change_message('XEQUE !', (255, 165, 0))
         else:
             change_message('', (0, 0, 0))
+
+        if GAME.turn() == Side.BLACK and not GAME.checkmate():
+            self.on_ai_request_move(AI.ai_move(1, True))
+            # self.on_ai_request_move(Pool(1).apply_async(AI.ai_move, (2, True)).get())
+
+    def on_ai_request_move(self, move):
+        uifromsq = next(sq for sq in self.children if isinstance(sq, BoardSquare) and sq.square == move.fromsq)
+        uitosq = next(sq for sq in self.children if isinstance(sq, BoardSquare) and sq.square == move.tosq)
+        uipiece = next(pc for pc in self.children if isinstance(pc, ChessPiece) and pc.square == move.fromsq)
+        # uipiece.square = move.tosq Não ! O 'request piece move' faz a peça lidar com isso por conta própria
+        captured = GAME.make(move)
+        if captured[0].kind is not NoPiece:
+            self._bus.emit('piece captured', captured)
+        self._bus.emit('request piece move', (move.fromsq, move.tosq))
+        if move.kind is MoveKind.CASTLE_QUEEN:
+            self._bus.emit('request piece move', (move.tosq - 2, move.tosq + 1))
+        elif move.kind is MoveKind.CASTLE_KING:
+            self._bus.emit('request piece move', (move.tosq + 1, move.tosq - 1))
+        elif move.promotion is not None:
+            self._bus.emit('request promotion options', (uipiece, move))
+            self._bus.emit('promotion choosen', move.promotion)
+        self._bus.emit('move made', None)
 
     def _parts(self):
         self.children = []
@@ -365,9 +394,10 @@ class PlayScreen(Scene):
                 else:
                     listagame.append(peca)
 
-        global GAME
+        global GAME, AI
         GAME = Game(
             listagame, {Side.WHITE: (True, True), Side.BLACK: (True, True)}, None, Side.WHITE)
+        AI = Minimax(GAME)
 
         self._bus.on('piece captured', self.on_piececaptured)
         self._bus.on('request piece move', self.on_request_piece_move)

@@ -1,3 +1,11 @@
+"""
+Modified version (adapted to python) of "script.js" from
+https://github.com/lhartikk/simple-chess-ai
+
+See LICENSE in current directory for original license
+"""
+
+
 from chessengine import *
 
 
