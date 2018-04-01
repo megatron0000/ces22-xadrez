@@ -1,6 +1,5 @@
 import time
 from enum import Enum
-
 import pygame
 
 
@@ -598,6 +597,9 @@ class SceneManager:
         self.__current.update_logic(dt)
         self.__current.update_render(self.__ctx, dt)
 
+    def destroy(self):
+        self.__current.destroy()
+
 
 class GameObject:
 
@@ -627,3 +629,4 @@ class GameObject:
                 dt = 1 / 60
             self.__scene_mgr.tick(dt)
             self.__display.flip()
+        self.__scene_mgr.destroy()

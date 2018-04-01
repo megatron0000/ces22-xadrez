@@ -1,17 +1,33 @@
 from math import sqrt
+from multiprocessing import Process, Pipe
 
+from aiprocess import aiprocess, move2str
 from chessengine import *
 from guiengine import *
-from minimax.AI import Minimax
-from multiprocessing import Pool
-
 
 WIDTH = 800
 HEIGHT = 600
 SCALE = 1 / 15
 GAME = None
 CHOOSINGPROMOTION = False
-AI = None
+PIPE = None
+AI_PROC = None
+WAITING = False
+PVP = False
+
+
+def set_globals():
+    global WIDTH, HEIGHT, SCALE, GAME, CHOOSINGPROMOTION, PIPE, AI_PROC, WAITING, PVP
+    WIDTH = 800
+    HEIGHT = 600
+    SCALE = 1 / 15
+    GAME = None
+    CHOOSINGPROMOTION = False
+    PIPE = None
+    AI_PROC = None
+    WAITING = False
+    PVP = False
+
 
 initialize(WIDTH, HEIGHT)
 
@@ -114,15 +130,17 @@ class ChessPiece(FigureNode):
         self.movetarget = (0, 0)
         self.timetaken = 0
 
-    def calcpos(self, xy):
+    def calcpos(self, xy, reset=True):
         x = xy[0] + (SBD.width - self.image.width) / 2
         y = xy[1] + (SBD.height - self.image.height) / 2
-        self.xy((x, y))
+        if reset:
+            self.xy((x, y))
+        return x, y
 
     def update_logic(self, dt):
         super().update_logic(dt)
         if self.timetaken > 0:
-            self.xy(tuple(l1 + 400 * dt * l2 for l1, l2 in zip(self.xy(), self.movedirection)))
+            self.xy(tuple(l1 + 800 * dt * l2 for l1, l2 in zip(self.xy(), self.movedirection)))
             self.timetaken -= dt
             if self.timetaken <= 0:
                 self.calcpos(self.movetarget)
@@ -161,20 +179,20 @@ class ChessPiece(FigureNode):
                 self.outer._bus.emit('request piece move', (self.outer.square - 2, self.outer.square + 1))
             elif pos_self_move[2].kind is MoveKind.CASTLE_KING:
                 self.outer._bus.emit('request piece move', (self.outer.square + 1, self.outer.square - 1))
-            self.outer._bus.emit('move made', None)
+            self.outer._bus.emit('move made', pos_self_move[2])
 
         def on_order_piece_move(self, self_tosq_coord):
             if self.outer is not self_tosq_coord[0]:
                 return
             self.outer.square = self_tosq_coord[1]
             self.outer.ismoving = True
-            self.outer.movedirection = tuple(
-                l2 - l1 for l1, l2 in zip(self.outer.xy(), self_tosq_coord[2]))
+            self.outer.movedirection = self.outer.calcpos(tuple(
+                l2 - l1 for l1, l2 in zip(self.outer.xy(), self_tosq_coord[2])), reset=False)
             length = sqrt(self.outer.movedirection[0] * self.outer.movedirection[0]
                           + self.outer.movedirection[1] * self.outer.movedirection[1])
             self.outer.movedirection = tuple(l / length for l in self.outer.movedirection)
             self.outer.movetarget = self_tosq_coord[2]
-            self.outer.timetaken = length / 400
+            self.outer.timetaken = length / 800
 
         def ondragstart(self, pos):
             if self.outer.ismoving:
@@ -196,7 +214,7 @@ class ChessPiece(FigureNode):
                 return
             self.outer._bus.emit('moves markup', [])
             self.outer.xy(self.originalpos)
-            if not CHOOSINGPROMOTION:
+            if not CHOOSINGPROMOTION and not WAITING:
                 self.outer._bus.emit('request square change', (pos, self, self.outer.square))
 
 
@@ -229,18 +247,26 @@ class MainMenuScreen(Scene):
     """
 
     def _parts(self):
-        play_button = ButtonNode(
-            (300, 200), Text("Jogar", 36, None, (255, 255, 255), (139, 69, 19)))
-        tutorial_button = ButtonNode(
-            (300, 400), Text("Tutorial", 36, None, (255, 255, 255), (139, 69, 19)))
+        play_text = Text("Versus CPU", 36, None, (255, 255, 255), (139, 69, 19))
+        play_button = ButtonNode(((WIDTH - play_text.width())//2, 200), play_text)
+        pvp_text = Text("PVP", 36, None, (255, 255, 255), (139, 69, 19))
+        pvp_button = ButtonNode(((WIDTH - pvp_text.width())//2, 400), pvp_text)
         self._background((184, 134, 11))
         self._add_child(play_button)
-        self._add_child(tutorial_button)
+        self._add_child(pvp_button)
         play_button.onclick(self.clickplay)
+        pvp_button.onclick(self.clickpvp)
         # self._bgm(Sound('Music/Music.ogg'))
 
     def clickplay(self):
         self._bus.emit(Event.SCENE_CHANGE, PlayScreen)
+        global PVP
+        PVP = False
+
+    def clickpvp(self):
+        self._bus.emit(Event.SCENE_CHANGE, PlayScreen)
+        global PVP
+        PVP = True
 
 
 class PlayScreen(Scene):
@@ -308,9 +334,11 @@ class PlayScreen(Scene):
         promotionmove = self.promoting_move._replace(promotion=chesspiece)
         if promotionmove in GAME.moves():
             GAME.make(promotionmove)
-            self._bus.emit('move made', None)
+            self._bus.emit('move made', promotionmove)
 
-    def on_move_made(self, data):
+    def on_move_made(self, move):
+
+        global WAITING
 
         def change_message(text, color):
             marginy = (HEIGHT - 8 * SBD.height) / 2
@@ -331,9 +359,11 @@ class PlayScreen(Scene):
         else:
             change_message('', (0, 0, 0))
 
-        if GAME.turn() == Side.BLACK and not GAME.checkmate():
-            self.on_ai_request_move(AI.ai_move(1, True))
+        if GAME.turn() == Side.BLACK and not GAME.checkmate() and not PVP:
+            # self.on_ai_request_move(AI.ai_move(1, True))
             # self.on_ai_request_move(Pool(1).apply_async(AI.ai_move, (2, True)).get())
+            PIPE.send(move2str(move))
+            WAITING = True
 
     def on_ai_request_move(self, move):
         uifromsq = next(sq for sq in self.children if isinstance(sq, BoardSquare) and sq.square == move.fromsq)
@@ -351,7 +381,7 @@ class PlayScreen(Scene):
         elif move.promotion is not None:
             self._bus.emit('request promotion options', (uipiece, move))
             self._bus.emit('promotion choosen', move.promotion)
-        self._bus.emit('move made', None)
+        self._bus.emit('move made', move)
 
     def _parts(self):
         self.children = []
@@ -394,16 +424,39 @@ class PlayScreen(Scene):
                 else:
                     listagame.append(peca)
 
-        global GAME, AI
-        GAME = Game(
-            listagame, {Side.WHITE: (True, True), Side.BLACK: (True, True)}, None, Side.WHITE)
-        AI = Minimax(GAME)
-
         self._bus.on('piece captured', self.on_piececaptured)
         self._bus.on('request piece move', self.on_request_piece_move)
         self._bus.on('request promotion options', self.on_request_promotion_options)
         self._bus.on('promotion choosen', self.on_promotion_choosen)
         self._bus.on('move made', self.on_move_made)
+
+        global PIPE, AI_PROC, GAME
+        GAME = Game(
+            listagame, {Side.WHITE: (True, True), Side.BLACK: (True, True)}, None, Side.WHITE)
+        print(listagame)
+        parent, child = Pipe()
+        PIPE = parent
+        AI_PROC = Process(target=aiprocess, args=(child, GAME))
+        AI_PROC.daemon = True
+        AI_PROC.start()
+
+    def update_logic(self, dt):
+        super().update_logic(dt)
+        global WAITING, PIPE, GAME
+        if WAITING and PIPE.poll():
+            WAITING = False
+            move = PIPE.recv()
+            self.on_ai_request_move(GAME.inflate(move))
+
+    def destroy(self):
+        super().destroy()
+        global AI_PROC, PIPE
+        AI_PROC.terminate()
+        AI_PROC.join()
+        AI_PROC = None
+        PIPE.close()
+        PIPE = None
+        set_globals()
 
 
 if __name__ == '__main__':

@@ -74,6 +74,10 @@ class Square(object):
         return self.index + other
 
     def __sub__(self, other):
+        if isinstance(other, int):
+            return self.index - other
+        if isinstance(other, Square):
+            return self.index - other.index
         return self.index - other
 
     def __rsub__(self, other):
@@ -106,6 +110,10 @@ class BoardLike:
         return len(self._board)
 
     def __getitem__(self, item):
+        if isinstance(item, int):
+            return self._board[item]
+        if isinstance(item, Square):
+            return self._board[item.index]
         return self._board[Square(item).index]
 
     def __iter__(self):
@@ -690,18 +698,21 @@ class Game:
             return False
         return self.moves() == []
 
+    def inflate(self, movestr):
+        fromsq = Square(movestr[0:2])
+        tosq = Square(movestr[2:4])
+        side = self.__board[fromsq].side
+        promotion = {
+            'N': Knight(side), 'R': Rook(side), 'Q': Queen(side), 'B': Bishop(side)
+        }[movestr[4]] if \
+            len(movestr) == 5 else None
+        existent = [x for x in self.__board[fromsq].plmoves(fromsq, self.__board, self.__context)
+                    if x.tosq == tosq and x.promotion == promotion]
+        return existent[0]
+
     def make(self, move):
         if isinstance(move, str):
-            fromsq = Square(move[0:2])
-            tosq = Square(move[2:4])
-            side = self.__board[fromsq].side
-            promotion = {
-                'N': Knight(side), 'R': Rook(side), 'Q': Queen(side), 'B': Bishop(side)
-            }[move[4]] if \
-                len(move) == 5 else None
-            existent = [x for x in self.__board[fromsq].plmoves(fromsq, self.__board, self.__context)
-                        if x.tosq == tosq and x.promotion == promotion]
-            move = existent[0]
+            move = self.inflate(move)
         antimove = move.kind.exec(
             move, self.__board.movepiece, self.__board.addpiece, self.__board.removepiece)
         if self.check() or self.__board[move.tosq].side is not self.__turn:
