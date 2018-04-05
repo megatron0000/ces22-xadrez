@@ -236,7 +236,7 @@ class TestText(unittest.TestCase):
     def setUp(self):
         self.c1 = 'Hola'
         self.c2 = 'Adios'
-        self.txt = Text(self.c1, 12, None, (0, 0, 0))
+        self.txt = Text(self.c1, 12, None, (0, 0, 0), (255, 255, 255))
 
     def test_to_surface(self):
         # Deve retornar a mesma várias vezes, a não ser quando conteúdo ou cor mudar
@@ -480,6 +480,7 @@ class TestGameObject(unittest.TestCase):
             self.cycles['render'] += 1
 
         def update_logic(self, dt):
+            self._bus.emit(Event.REQ_ANIM_FRAME)
             self.cycles['logic'] += 1
             if self.cycles['logic'] == 100:
                 self._bus.emit(Event.QUIT, None)

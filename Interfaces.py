@@ -142,6 +142,7 @@ class ChessPiece(FigureNode):
         if self.timetaken > 0:
             self.xy(tuple(l1 + 800 * dt * l2 for l1, l2 in zip(self.xy(), self.movedirection)))
             self.timetaken -= dt
+            self._bus.emit(Event.REQ_ANIM_FRAME)
             if self.timetaken <= 0:
                 self.calcpos(self.movetarget)
                 self.ismoving = False
@@ -248,9 +249,9 @@ class MainMenuScreen(Scene):
 
     def _parts(self):
         play_text = Text("Versus CPU", 36, None, (255, 255, 255), (139, 69, 19))
-        play_button = ButtonNode(((WIDTH - play_text.width())//2, 200), play_text)
+        play_button = ButtonNode(((WIDTH - play_text.width()) // 2, 200), play_text)
         pvp_text = Text("PVP", 36, None, (255, 255, 255), (139, 69, 19))
-        pvp_button = ButtonNode(((WIDTH - pvp_text.width())//2, 400), pvp_text)
+        pvp_button = ButtonNode(((WIDTH - pvp_text.width()) // 2, 400), pvp_text)
         self._background((184, 134, 11))
         self._add_child(play_button)
         self._add_child(pvp_button)
@@ -433,7 +434,6 @@ class PlayScreen(Scene):
         global PIPE, AI_PROC, GAME
         GAME = Game(
             listagame, {Side.WHITE: (True, True), Side.BLACK: (True, True)}, None, Side.WHITE)
-        print(listagame)
         parent, child = Pipe()
         PIPE = parent
         AI_PROC = Process(target=aiprocess, args=(child, GAME))
@@ -443,10 +443,12 @@ class PlayScreen(Scene):
     def update_logic(self, dt):
         super().update_logic(dt)
         global WAITING, PIPE, GAME
-        if WAITING and PIPE.poll():
-            WAITING = False
-            move = PIPE.recv()
-            self.on_ai_request_move(GAME.inflate(move))
+        if WAITING:
+            self._bus.emit(Event.REQ_ANIM_FRAME)
+            if PIPE.poll():
+                WAITING = False
+                move = PIPE.recv()
+                self.on_ai_request_move(GAME.inflate(move))
 
     def destroy(self):
         super().destroy()

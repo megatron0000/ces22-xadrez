@@ -91,7 +91,7 @@ class BusProxy:
                 self._proxied_bus.disable(event, cb)
         self._listeners.clear()
 
-    def emit(self, event_name, event_data):
+    def emit(self, event_name, event_data=None):
         # Só redireciona ao bus original
         self._proxied_bus.emit(event_name, event_data)
 
@@ -102,6 +102,7 @@ class OuterBus(EventBus):
         super().__init__()
         self.__redirection_target = None
         self.__emptyframes = 0
+        self.__waited = []
 
     def redirect(self, target_bus):
         self.__redirection_target = target_bus
@@ -112,12 +113,21 @@ class OuterBus(EventBus):
         else:
             super().emit(event_name, event_data)
 
+    def wait(self):
+        """
+        Bloqueia a thread corrente até que haja evento novo do pygame
+        """
+        self.__waited = [pygame.event.wait()]
+
     def refresh(self):
-        for event in pygame.event.get():
+        """
+        Processa todos os eventos do pygame coletados,
+        inclusive aquele que tenha sido esperado por self.wait()
+        """
+        for event in self.__waited + pygame.event.get():
             self.__process_event(event)
-        # for event in [pygame.event.wait()] + pygame.event.get():
-        #     self.__process_event(event)
-        # pygame.time.wait(0)
+        self.__waited = []
+        pygame.time.wait(0)
 
     def __process_event(self, event):
         if event.type == pygame.QUIT:
@@ -138,6 +148,7 @@ class Event(Enum):
     MOUSEDOWN = 'mousedown'
     MOUSEUP = 'mouseup'
     SCENE_CHANGE = 'scene-change'
+    REQ_ANIM_FRAME = 'request-animation-frame'
 
 
 class MouseAware:
@@ -609,16 +620,24 @@ class GameObject:
         self.__bus = EventBus()
         EventBus.active(self.__bus)
         self.__bus.on(Event.QUIT, self.__quit_listener)
+        self.__bus.on(Event.REQ_ANIM_FRAME, self.__req_anim_frame_listener)
         self.__outer_bus.redirect(self.__bus)
         self.__scene_mgr = SceneManager(display.draw_context(), self.__bus, initial_scene)
         self.__should_stop = False
+        self.__should_wait = True
 
     def __quit_listener(self, data):
         self.__should_stop = True
 
+    def __req_anim_frame_listener(self, data):
+        self.__should_wait = False
+
     def gameloop(self):
         time_now = time.clock()
         while not self.__should_stop:
+            if self.__should_wait:
+                self.__outer_bus.wait()
+            self.__should_wait = True
             self.__outer_bus.refresh()
             time_before = time_now
             time_now = time.clock()
