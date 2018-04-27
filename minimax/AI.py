@@ -10,7 +10,7 @@ from chessengine import *
 
 
 class Minimax:
-    """Classe que implanta a Inteligência Artificial"""
+    """Classe que implementa a Inteligência Artificial"""
 
     class EvalPiece:
         """Classe que reúne os valores adicionais à avaliação de cada peça de acordo com a posição no tabuleiro"""
@@ -132,9 +132,8 @@ class Minimax:
         self.eval = self.EvalPiece()
 
     def ai_move(self, depth, is_maximizing_player):
-        """Método que recebe a lista de jogadas possíveis e chama e retorna a melhor opção.
-        Chama em seu corpo o método recursivo minimax"""
-
+        """Método que recebe a lista de jogadas possíveis, chama em seu corpo o método recursivo minimax
+         e retorna a melhor opção dentre as jogadas."""
         new_game_moves = self.game.moves()
         best_move_found = None
         position_count = 0
@@ -150,14 +149,14 @@ class Minimax:
         return best_move_found
 
     def _minimax(self, depth, alpha, beta, is_maximizing_player, position_count):
-        """Método recursivo monta uma árvore recursiva de decisão"""
+        """Método recursivo que monta uma árvore recursiva de decisão com profundidade depth"""
         position_count += 1
         new_game_moves = self.game.moves()
         #Condição de parada. depth representa a profundidade da árvore de decisão
         if depth == 0:
             return -self._evaluate_board()
+        # Aplicação da recursão com otimização do algoritmo Alfa, Beta Prunning.
         if is_maximizing_player:
-            #Peças brancas
             best_move = -9999
             for move in new_game_moves:
                 # Para cada movimento
