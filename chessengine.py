@@ -1093,13 +1093,3 @@ class Game:
         :return: Representação interna do tabuleiro de jogo
         """
         return self.__board
-
-    def get_moves(self):
-        """
-
-        :return: Lista de todos os movimentos que o jogador da vez pode executar.
-        Cada movimento é uma instância de `Move`
-        """
-        legalmoves = []
-        for square in self.__board.get_playersquares(self.turn()):
-            legalmoves.append((square, self.moves(square)))
