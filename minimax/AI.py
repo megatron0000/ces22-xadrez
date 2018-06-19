@@ -10,7 +10,10 @@ from chessengine import *
 
 
 class Minimax:
+    """Classe que implementa a Inteligência Artificial"""
+
     class EvalPiece:
+        """Classe que reúne os valores adicionais à avaliação de cada peça de acordo com a posição no tabuleiro"""
 
         def __init__(self):
             self.pawnWhite = BoardLike(([None] * 15) * 3 +
@@ -129,11 +132,14 @@ class Minimax:
         self.eval = self.EvalPiece()
 
     def ai_move(self, depth, is_maximizing_player):
+        """Método que recebe a lista de jogadas possíveis, chama em seu corpo o método recursivo minimax
+         e retorna a melhor opção dentre as jogadas."""
         new_game_moves = self.game.moves()
         best_move_found = None
         position_count = 0
         best_move = -9999
         for move in new_game_moves:
+            #Faz o movimento para cada jogada permitida, aplica o método minimax e guarda o valor da melhor jogada
             self.game.make(move)
             value = self._minimax(depth - 1, -10000, 10000, not is_maximizing_player, position_count)
             self.game.unmake()
@@ -143,13 +149,17 @@ class Minimax:
         return best_move_found
 
     def _minimax(self, depth, alpha, beta, is_maximizing_player, position_count):
+        """Método recursivo que monta uma árvore recursiva de decisão com profundidade depth"""
         position_count += 1
         new_game_moves = self.game.moves()
+        #Condição de parada. depth representa a profundidade da árvore de decisão
         if depth == 0:
             return -self._evaluate_board()
+        # Aplicação da recursão com otimização do algoritmo Alfa, Beta Prunning.
         if is_maximizing_player:
             best_move = -9999
             for move in new_game_moves:
+                # Para cada movimento
                 self.game.make(move)
                 best_move = max(
                     best_move,
@@ -160,6 +170,7 @@ class Minimax:
                     return best_move
             return best_move
         else:
+            # Peças pretas
             best_move = 9999
             for move in new_game_moves:
                 self.game.make(move)
@@ -173,6 +184,7 @@ class Minimax:
             return best_move
 
     def _evaluate_board(self):
+        """Método que avalia a condição do tabuleiro através do somatório das avaliações das peça"""
         total_evaluation = 0
         infoboard = tuple(
             (square, self.game.get(square)) for square in self.game.getboard().occuppied(Side.WHITE))
@@ -185,16 +197,16 @@ class Minimax:
         return total_evaluation
 
     def _get_piece_value(self, infopiece):
+        """Método que recebe o valor absoluto final de uma peça e retorna o valor final conforme sua cor"""
         i = infopiece[0]
         piece = infopiece[1]
-        # if piece.kind in (OutOfBoundsPiece, NoPiece):
-        #     return 0
         if piece.side == Side.WHITE:
             return self._get_absolute_value(i, piece)
         else:
             return -self._get_absolute_value(i, piece)
 
     def _get_absolute_value(self, i, piece):
+        """Método que recebe uma peça e retorna o valor absoluto final (peça + posição) """
         if piece.kind == Pawn:
             if piece.side == Side.WHITE:
                 return 10 + self.eval.pawnWhite[i]
