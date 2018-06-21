@@ -265,7 +265,10 @@ class Board(BoardLike):
         :param side: Do tipo `Side`
         :return: `Square`s ocupadas pelo lado `side`
         """
-        return self.__playersquares[side].keys()
+        # Explicitly convert to list. Using an iterator led to bug:
+        # I suspect doing and undoing moves in self.moves changed the order of the
+        # keys in the iterator midway
+        return list(self.__playersquares[side].keys())
 
     def attacked(self, square, side):
         """
@@ -388,6 +391,7 @@ class MoveExecutor:
     """
     Representa um objeto que sabe realizar uma instância de `Move`.
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         """
 
@@ -405,6 +409,7 @@ class MoveQuietExecutor(MoveExecutor):
     """
     Executor de movimentos em que não há captura, nem promoção
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         movepiece(move.fromsq, move.tosq)
         return AntiMove(move.tosq, move.fromsq, None, None, MoveKind.ANTI_QUIET)
@@ -414,6 +419,7 @@ class MoveAntiQuietExecutor(MoveExecutor):
     """
     Desfaz movimentos em que não há captura, nem promoção
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         movepiece(move.fromsq, move.tosq)
 
@@ -441,6 +447,7 @@ class MoveAntiEpCaptureExecutor(MoveExecutor):
     """
     Desfaz movimentos de captura "en passant"
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         movepiece(move.fromsq, move.tosq)
         addpiece(move.addpiece, move.addpos)
@@ -450,6 +457,7 @@ class MovePawn2Executor(MoveExecutor):
     """
     Executor de movimentos em que um peão avança duas casas de uma vez
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         movepiece(move.fromsq, move.tosq)
         return AntiMove(move.tosq, move.fromsq, None, None, MoveKind.ANTI_PAWN2)
@@ -459,6 +467,7 @@ class MoveAntiPawn2Executor(MoveExecutor):
     """
     Desfaz movimentos em que um peão avança duas casas de uma vez
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         movepiece(move.fromsq, move.tosq)
 
@@ -467,6 +476,7 @@ class MoveCaptureExecutor(MoveExecutor):
     """
     Executor de movimentos em que há captura (mas não há promoção)
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         captured = movepiece(move.fromsq, move.tosq)
         return AntiMove(move.tosq, move.fromsq, captured, move.tosq, MoveKind.ANTI_CAPTURE)
@@ -476,6 +486,7 @@ class MoveAntiCaptureExecutor(MoveExecutor):
     """
     Desfaz movimentos em que há captura, mas não há promoção
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         movepiece(move.fromsq, move.tosq)
         addpiece(move.addpiece, move.addpos)
@@ -485,6 +496,7 @@ class MovePromotionExecutor(MoveExecutor):
     """
     Executor de movimentos de peão em que a peça é promovida, mas não há captura
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         pawn = removepiece(move.fromsq)
         addpiece(move.promotion, move.tosq)
@@ -495,6 +507,7 @@ class MoveAntiPromotionExecutor(MoveExecutor):
     """
     Desfaz movimentos de peão em que a peça é promovida, mas não há captura
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         removepiece(move.fromsq)
         addpiece(move.addpiece, move.addpos)
@@ -504,6 +517,7 @@ class MovePromotionCaptureExecutor(MoveExecutor):
     """
     Executor de movimentos de peão em que há tanto promoção quanto captura
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         captured = movepiece(move.fromsq, move.tosq)
         addpiece(move.promotion, move.tosq)
@@ -515,6 +529,7 @@ class MoveAntiPromotionCaptureExecutor(MoveExecutor):
     """
     Desfaz movimentos de peão em que há tanto promoção quanto captura
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         side = removepiece(move.fromsq).side
         addpiece(move.addpiece, move.addpos)
@@ -525,6 +540,7 @@ class MoveCastleKingExecutor(MoveExecutor):
     """
     Executor de Roque pelo lado do rei
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         movepiece(move.fromsq, move.tosq)
         movepiece(move.tosq + 1, move.fromsq + 1)
@@ -535,6 +551,7 @@ class MoveAntiCastleKingExecutor(MoveExecutor):
     """
     Desfaz Roque pelo lado do rei
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         movepiece(move.fromsq, move.tosq)
         movepiece(move.tosq + 1, move.fromsq + 1)
@@ -544,6 +561,7 @@ class MoveCastleQueenExecutor(MoveExecutor):
     """
     Executor de Roque pelo lado da rainha
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         movepiece(move.fromsq, move.tosq)
         movepiece(move.tosq - 2, move.tosq + 1)
@@ -554,6 +572,7 @@ class MoveAntiCastleQueenExecutor(MoveExecutor):
     """
     Desfaz Roque pelo lado da rainha
     """
+
     def exec(self, move, movepiece, addpiece, removepiece):
         movepiece(move.fromsq, move.tosq)
         movepiece(move.tosq - 1, move.fromsq - 2)
@@ -633,6 +652,7 @@ class NoPiece(Piece):
     Representa a ausência de peça. Por exemplo: Dada uma instância de `BoardLike`, acessar
     `BoardLike[Square('b1')]` retornará instância de `NoPiece` caso a casa 'b1' não esteja ocupada
     """
+
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls, None)
 
@@ -652,6 +672,7 @@ class OutOfBoundsPiece(Piece):
     isto é, aquelas que foram criadas somente para facilitar codificação, mas não são nenhuma das 64
     casas existentes num tabuleiro real
     """
+
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls, None)
 
@@ -889,6 +910,7 @@ class Game:
     é a única classe que pode ser instanciada por um consumidor da engine de xadrez.
     Todas as outras classes são "internas" à engine.
     """
+
     class GameBoard(Board):
 
         def movepiece(self, fromsq, tosq):
@@ -906,6 +928,36 @@ class Game:
         Side.WHITE: '1',
         Side.BLACK: '8'
     }
+
+    PIECES_INIT = {
+        "a1": Rook(Side.WHITE), "b1": Knight(Side.WHITE), "c1": Bishop(Side.WHITE),
+        "d1": Queen(Side.WHITE), "e1": King(Side.WHITE), "f1": Bishop(Side.WHITE),
+        "g1": Knight(Side.WHITE), "h1": Rook(Side.WHITE), "a2": Pawn(Side.WHITE),
+        "b2": Pawn(Side.WHITE), "c2": Pawn(Side.WHITE), "d2": Pawn(Side.WHITE),
+        "e2": Pawn(Side.WHITE), "f2": Pawn(Side.WHITE), "g2": Pawn(Side.WHITE),
+        "h2": Pawn(Side.WHITE), "a8": Rook(Side.BLACK), "b8": Knight(Side.BLACK),
+        "c8": Bishop(Side.BLACK), "d8": Queen(Side.BLACK), "e8": King(Side.BLACK),
+        "f8": Bishop(Side.BLACK), "g8": Knight(Side.BLACK), "h8": Rook(Side.BLACK),
+        "a7": Pawn(Side.BLACK), "b7": Pawn(Side.BLACK), "c7": Pawn(Side.BLACK),
+        "d7": Pawn(Side.BLACK), "e7": Pawn(Side.BLACK), "f7": Pawn(Side.BLACK),
+        "g7": Pawn(Side.BLACK), "h7": Pawn(Side.BLACK),
+    }
+
+    @staticmethod
+    def default_game():
+        positions = []
+        for c in "abcdefgh":
+            for i in range(1, 9):
+                positions.append(c + str(9 - i))
+        listgame = []
+        for i in range(8):
+            for j in range(8):
+                piece = Game.PIECES_INIT.get(positions[i + 8 * j])
+                if piece is None:
+                    listgame.append(NoPiece())
+                else:
+                    listgame.append(piece)
+        return Game(listgame, {Side.WHITE: (True, True), Side.BLACK: (True, True)}, None, Side.WHITE)
 
     def __init__(self, board_array, castle_rights, ep_square, turn):
         """
@@ -1019,6 +1071,8 @@ class Game:
         return self.moves() == []
 
     def inflate(self, movestr):
+        if len(movestr) > 5:
+            raise ValueError('move string must be either 4 or 5 characters long')
         fromsq = Square(movestr[0:2])
         tosq = Square(movestr[2:4])
         side = self.__board[fromsq].side
